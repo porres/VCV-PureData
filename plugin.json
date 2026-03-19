@@ -1,0 +1,25 @@
+{
+  "slug": "Pd-PureData",
+  "name": "PureData",
+  "version": "2.6.6",
+  "license": "GPL-3.0-or-later",
+  "brand": "Pd",
+  "author": "Pd",
+  "authorEmail": "porres@gmail.com",
+  "authorUrl": "https://www.patreon.com/porres/",
+  "pluginUrl": "https://vcvrack.com/Pd-PureData.html",
+  "manualUrl": "https://vcvrack.com/Pd-PureData.html#manual",
+  "sourceUrl": "https://github.com/porres/VCV-PureData",
+  "donateUrl": "",
+  "changelogUrl": "https://github.com/porres/VCV-PureData/blob/master/CHANGELOG.md",
+  "modules": [
+    {
+      "slug": "PureData",
+      "name": "PureData",
+      "description": "Run Pure Data patches.",
+      "tags": [
+        "External"
+      ]
+    }
+  ]
+}
