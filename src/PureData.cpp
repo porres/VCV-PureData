@@ -116,10 +116,11 @@ struct LibPDEngine : ScriptEngine {
 
         libpd_set_printhook((t_libpd_printhook)libpd_print_concatenator);
         libpd_set_concatenated_printhook(receiveLights);
-        if (libpd_num_instances() > 2) {
+// we now allow multiple instances
+/*        if (libpd_num_instances() > 2) {
             display("Multiple simultaneous libpd (Pure Data) instances not yet supported.");
             return -1;
-        }
+        }*/
         //display(std::to_string(libpd_num_instances()));
         libpd_init_audio(NUM_ROWS, NUM_ROWS, _sampleRate);
 
@@ -371,7 +372,6 @@ void LibPDEngine::sendInitialStates(const ProcessBlock* block) {
 
 Plugin* pluginInstance;
 
-static std::string settingsEditorPath;
 static std::string settingsPdEditorPath =
 #if defined ARCH_LIN
 	"\"/usr/bin/pd-gui\"";
@@ -381,16 +381,11 @@ static std::string settingsPdEditorPath =
 
 json_t* settingsToJson() {
 	json_t* rootJ = json_object();
-	json_object_set_new(rootJ, "editorPath", json_string(settingsEditorPath.c_str()));
 	json_object_set_new(rootJ, "pdEditorPath", json_string(settingsPdEditorPath.c_str()));
 	return rootJ;
 }
 
 void settingsFromJson(json_t* rootJ) {
-	json_t* editorPathJ = json_object_get(rootJ, "editorPath");
-	if (editorPathJ)
-		settingsEditorPath = json_string_value(editorPathJ);
-
 	json_t* pdEditorPathJ = json_object_get(rootJ, "pdEditorPath");
 	if (pdEditorPathJ)
 		settingsPdEditorPath = json_string_value(pdEditorPathJ);

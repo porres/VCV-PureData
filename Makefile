@@ -1,4 +1,4 @@
-RACK_DIR ?= ../..
+RACK_DIR ?= ../Rack-SDK
 
 FLAGS += -Idep/include
 CFLAGS +=
