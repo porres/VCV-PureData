@@ -7,7 +7,7 @@ CXXFLAGS +=
 LDFLAGS +=
 SOURCES += src/PureData.cpp
 
-DISTRIBUTABLES += res examples
+DISTRIBUTABLES += res patches
 DISTRIBUTABLES += $(wildcard LICENSE*)
 
 include $(RACK_DIR)/arch.mk
