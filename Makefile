@@ -32,6 +32,15 @@ endif
 $(libpd):
 	cd dep && git clone "https://github.com/libpd/libpd.git" --recursive
 	cd dep/libpd && git checkout tags/0.15.0
+
+ifdef ARCH_WIN
+	# Some MinGW toolchains define HAVE_ALLOCA_H but do not provide alloca.h.
+	# Reorder upstream include guards to prefer the _WIN32 branch.
+	cd dep/libpd && sed -i.bak \
+		-e 's/# ifdef HAVE_ALLOCA_H/# if defined _WIN32/' \
+		-e 's/# elif defined _WIN32/# elif defined HAVE_ALLOCA_H/' \
+		pure-data/src/m_private_utils.h && rm -f pure-data/src/m_private_utils.h.bak
+endif
 	
 ifdef ARCH_MAC
 	# libpd's Makefile is handmade, and it doesn't honor CFLAGS and LDFLAGS environments.
