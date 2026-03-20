@@ -788,13 +788,20 @@ struct PureData : Module {
 		(void) std::system(command.c_str());
 #elif defined ARCH_WIN
 		std::string command = editorPath + " \"" + path + "\"";
-		std::wstring commandW = string::toWstring(command);
+		int commandWLen = MultiByteToWideChar(CP_UTF8, 0, command.c_str(), -1, NULL, 0);
+		if (commandWLen <= 0)
+			return;
+		std::wstring commandW(commandWLen, L'\0');
+		MultiByteToWideChar(CP_UTF8, 0, command.c_str(), -1, &commandW[0], commandWLen);
 		STARTUPINFOW startupInfo;
 		std::memset(&startupInfo, 0, sizeof(startupInfo));
 		startupInfo.cb = sizeof(startupInfo);
 		PROCESS_INFORMATION processInfo;
 		// Use the non-const [] accessor for commandW. Since C++11, it is null-terminated.
-		CreateProcessW(NULL, &commandW[0], NULL, NULL, false, 0, NULL, NULL, &startupInfo, &processInfo);
+		if (CreateProcessW(NULL, &commandW[0], NULL, NULL, false, 0, NULL, NULL, &startupInfo, &processInfo)) {
+			CloseHandle(processInfo.hThread);
+			CloseHandle(processInfo.hProcess);
+		}
 #endif
 	}
 
