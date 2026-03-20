@@ -17,6 +17,8 @@
 
 using namespace rack;
 
+Plugin* pluginInstance;
+
 static const int NUM_ROWS = 6;
 static const int MAX_BUFFER_SIZE = 4096;
 
@@ -107,14 +109,36 @@ struct LibPDEngine : ScriptEngine {
         return "Pure Data";
     }
     int run(const std::string& path, const std::string& script) override {
+        // DEBUG
+//        fprintf(stderr, ">>> LibPDEngine::run() called\n");
         ProcessBlock* block = getProcessBlock();
         _sampleRate = block->sampleRate;
         setBufferSize(_pd_block_size);
         setFrameDivider(1);
         libpd_init();
+        
+// Set ELSE to the path
+        std::string pluginPath = asset::plugin(pluginInstance, "");
+        std::string elsePath = pluginPath + "patches/else";
+        // DEBUG
+//        fprintf(stderr, "ELSE path: %s\n", elsePath.c_str());
+        libpd_add_to_search_path(elsePath.c_str());
+//        fprintf(stderr, "ELSE path set to: %s\n", elsePath.c_str());
+//        fprintf(stderr, "Search path added. Check if folder exists: ");
+/*        FILE* test = fopen((elsePath + "/adsr~.darwin-arm64-32.so").c_str(), "r");
+        if (test) {
+            fprintf(stderr, "Found adsr~.darwin-arm64-32.so\n");
+            fclose(test);
+        } else {
+            fprintf(stderr, "NOT FOUND\n");
+        }*/
+        
         _lpd = libpd_new_instance();
 
         libpd_set_printhook((t_libpd_printhook)libpd_print_concatenator);
+/*        libpd_set_printhook([](const char* s) {
+            fprintf(stderr, "libpd: %s\n", s);
+        });*/
         libpd_set_concatenated_printhook(receiveLights);
 // we now allow multiple instances
 /*        if (libpd_num_instances() > 2) {
@@ -125,7 +149,7 @@ struct LibPDEngine : ScriptEngine {
         libpd_init_audio(NUM_ROWS, NUM_ROWS, _sampleRate);
 
         // compute audio    [; pd dsp 1(
-        libpd_start_message(1); // one enstry in list
+        libpd_start_message(1); // one entry in list
         libpd_add_float(1.0f);
         libpd_finish_message("pd", "dsp");
 
@@ -369,8 +393,6 @@ void LibPDEngine::sendInitialStates(const ProcessBlock* block) {
 }
 
 // ------------------- plugin ------------------------------
-
-Plugin* pluginInstance;
 
 static std::string settingsPdEditorPath =
 #if defined ARCH_LIN
@@ -731,7 +753,7 @@ struct PureData : Module {
 	}
 
 	void loadScriptDialog() {
-		std::string dir = asset::plugin(pluginInstance, "examples");
+		std::string dir = asset::plugin(pluginInstance, "patches");
 		char* pathC = osdialog_file(OSDIALOG_OPEN, dir.c_str(), NULL, NULL);
 		if (!pathC) {
 			return;
@@ -751,7 +773,7 @@ struct PureData : Module {
 			return;
 //		std::string ext = string::filenameExtension(string::filename(path));
         std::string ext = system::getExtension(system::getFilename(path));
-		std::string dir = asset::plugin(pluginInstance, "examples");
+		std::string dir = asset::plugin(pluginInstance, "patches");
 		std::string filename = "Untitled." + ext;
 		char* newPathC = osdialog_file(OSDIALOG_SAVE, dir.c_str(), filename.c_str(), NULL);
 		if (!newPathC) {
