@@ -32,12 +32,6 @@ endif
 $(libpd):
 	cd dep && git clone "https://github.com/libpd/libpd.git" --recursive
 	cd dep/libpd && git checkout tags/0.15.0
-	# Some MinGW toolchains define HAVE_ALLOCA_H but do not provide alloca.h.
-	# Reorder upstream include guards to prefer the _WIN32 branch.
-	cd dep/libpd && sed -i.bak \
-		-e 's/# ifdef HAVE_ALLOCA_H/# if defined _WIN32/' \
-		-e 's/# elif defined _WIN32/# elif defined HAVE_ALLOCA_H/' \
-		pure-data/src/m_private_utils.h && rm -f pure-data/src/m_private_utils.h.bak
 	
 ifdef ARCH_MAC
 	# libpd's Makefile is handmade, and it doesn't honor CFLAGS and LDFLAGS environments.
@@ -46,7 +40,13 @@ ifdef ARCH_MAC
 	# Perhaps inline assembly is used in libpd? Who knows.
 	cd dep/libpd && $(MAKE) MULTI=true STATIC=true ADDITIONAL_CFLAGS='-DPD_LONGINTTYPE="long long" $(DEP_MAC_SDK_FLAGS) -stdlib=libc++' ADDITIONAL_LDFLAGS='$(DEP_MAC_SDK_FLAGS) -stdlib=libc++'
 else
+	ifdef ARCH_WIN
+		# libpd relies on OS=Windows_NT for platform detection even when cross-compiling.
+		# Also force heap allocation path to avoid missing alloca.h in some MinGW toolchains.
+		cd dep/libpd && $(MAKE) OS=Windows_NT MULTI=true STATIC=true ADDITIONAL_CFLAGS='-DPD_LONGINTTYPE="long long" -DDONT_USE_ALLOCA=1'
+	else
 	cd dep/libpd && $(MAKE) MULTI=true STATIC=true ADDITIONAL_CFLAGS='-DPD_LONGINTTYPE="long long"'
+	endif
 endif
 	cd dep/libpd && $(MAKE) install prefix="$(DEP_PATH)"
 
