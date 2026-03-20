@@ -35,6 +35,6 @@ else
 	cd libpd && $(MAKE) MULTI=true EXTRA=true STATIC=true ADDITIONAL_CFLAGS='-DPD_LONGINTTYPE="long long"'
 endif
 endif
-	cd libpd && $(MAKE) install prefix="$(DEP_PATH)"
+	cd libpd && $(MAKE)
 
 include $(RACK_DIR)/plugin.mk

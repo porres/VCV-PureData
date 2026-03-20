@@ -121,24 +121,24 @@ struct LibPDEngine : ScriptEngine {
         std::string pluginPath = asset::plugin(pluginInstance, "");
         std::string elsePath = pluginPath + "patches/else";
         // DEBUG
-//        fprintf(stderr, "ELSE path: %s\n", elsePath.c_str());
+        fprintf(stderr, "ELSE path: %s\n", elsePath.c_str());
         libpd_add_to_search_path(elsePath.c_str());
-//        fprintf(stderr, "ELSE path set to: %s\n", elsePath.c_str());
-//        fprintf(stderr, "Search path added. Check if folder exists: ");
-/*        FILE* test = fopen((elsePath + "/adsr~.darwin-arm64-32.so").c_str(), "r");
+        fprintf(stderr, "ELSE path set to: %s\n", elsePath.c_str());
+        fprintf(stderr, "Search path added. Check if folder exists: ");
+        FILE* test = fopen((elsePath + "/impseq~.darwin-arm64-32.so").c_str(), "r");
         if (test) {
-            fprintf(stderr, "Found adsr~.darwin-arm64-32.so\n");
+            fprintf(stderr, "Found impseq~.darwin-arm64-32.so\n");
             fclose(test);
         } else {
             fprintf(stderr, "NOT FOUND\n");
-        }*/
+        }
         
         _lpd = libpd_new_instance();
 
-        libpd_set_printhook((t_libpd_printhook)libpd_print_concatenator);
-/*        libpd_set_printhook([](const char* s) {
+//        libpd_set_printhook((t_libpd_printhook)libpd_print_concatenator);
+        libpd_set_printhook([](const char* s) {
             fprintf(stderr, "libpd: %s\n", s);
-        });*/
+        });
         libpd_set_concatenated_printhook(receiveLights);
 // we now allow multiple instances
 /*        if (libpd_num_instances() > 2) {

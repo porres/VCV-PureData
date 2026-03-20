@@ -1,3 +1,0 @@
-# xgettext detects some false-positives...
-msgid "_"
-msgstr ""

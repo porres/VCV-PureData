@@ -1,3 +1,0 @@
-#define $foo dollar
-#define $bar sine
-#include "$foo_include_$bar.sfz"

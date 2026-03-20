@@ -1,3 +1,0 @@
-this text file is read by qlist.pd;
-1000 that should explain everything;
-1000;
