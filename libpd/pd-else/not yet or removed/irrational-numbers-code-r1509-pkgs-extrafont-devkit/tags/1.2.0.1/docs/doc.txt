@@ -1,0 +1,123 @@
+extrafont - 1.2
+================
+
+extrafont is a package designed to provide "private fonts" for Tk apps.
+
+"Private fonts" are fonts usually delivered with an app.
+They don't need to be installed in some 'standard' system-wide directories;
+once these fonsts are loaded, they can be used in the same way of pre-installed fonts.
+These loaded fonts are only visible by the process (app) who loaded'em, and then
+disappear when the app terminates.
+
+This package provides an homogeneous multi platform mechamism for such purpose.
+Supported tcltk runtimes are
+ * Windows (32/64 bit)
+ * Linux   (32/64 bit)
+ * MacOS
+You don't need to choose a specific binary runtime; it is automatically selected
+when you run
+   package require extrafont
+Note that a specific runtime support (e.g. "Linux 32") is not referred to the 
+hosting O.S. architecture, but it's referred to the architecture of the TclTk 
+interpreter. 
+E.g. if you have a 32-bit TclTk interpreter running on a 64-bit Linux, 
+then the binary extension for linux-x32 will be automaticaaly selected.
+ 
+=======
+
+The extrafont package provides these commands:
+ extrafont::load
+ extrafont::unload
+ extrafont::loaded  (*deprecated obsolete*)
+ extrafont::query
+ extrafont::nameinfo
+ extrafont::nametable::nameIDs
+ extrafont::cleanup
+ extrafont::isAvailable
+ extrafont::availableFamilies
+
+extrafont::load _filename_
+ Loads all the fonts contained in filename. These fonts will be visible to the current process only
+  and they will automatically disappear when the process terminates.
+ After loading filename, all the fonts contained in filename will be available to the current Tk app.
+ This command returns the list of the font-families loaded.
+ An error is raised if filename represents an invalid font-file, or if filename has been already loaded as an extrafont.
+
+extrafont::unload _filename_
+ Unloads all the fonts previosly loaded with filename.
+ Note that if a widget is using these fonts, it may display them correctly, as long text or font-properties (e.g. size) are not changed;
+ in these latter cases, Tk will replace the displayed text using a default font.
+
+extrafont::loaded
+ (This command is obsolete and its use is deprecated. See extrafont::query command)
+ Returns a list containing the names of all currently loaded 'extrafont' font-files
+
+extrafont::query  _kind_ ?_selector_ _pattern_?
+ Returns lists of different kinds (files, families, fullnames, details) about
+ the loaded fonts (just about the extrafont-loaded fonts), matching the optional
+ selection-pattern.
+ A selection-pattern is made by a selector (-file, -family, -fullname) and a
+ glob-style pattern.
+ Examples:
+  * list all the (extrafont) loaded font-files:
+  extrafont::query files
+  * list all the (extrafont) loaded font-families from font-files "Ariel*.ttf""
+  extrafont::query families -file "*/Ariel*.ttf"
+  * list all the details of the font-family "Ariel*"
+  extrafont::query details -family "Ariel*"
+
+extrafont::nameinfo _fontfile_
+ Returns a list of font-details. One font-detail (a dictionary) for each font
+ contained in $fontfile.
+
+extrafont::nametable::nameIDs
+ Returns all the valid keys used for the font-details dictionary
+   
+extrafont::cleanup
+ Unloads all the loaded extrafonts.
+ 
+extrafont::isAvailable _fontFamily_
+ Returns true if fontFamily is avaiable.
+ **WARNING** - on MacOSX after loading/unloading one or more fonts, the list
+ of the availables fonts won't be updated till the next event-loop update.
+ For this reason, if your script needs to call isAvalable/availableFamilies
+ just after loading/unloading a fontfile, you need to call the "update" command. 
+
+
+extrafont::availableFamilies ?_fontFamilyPattern_?
+ Returns the list of font-families matching the glob-style fontFamilyPattern.
+ e.g.
+ extrafont::availableFamilies co*
+ returns
+  Courier {Comic Sans MS}  .....
+ **WARNING** - on MacOSX after loading/unloading one or more fonts, the list
+ of the availables fonts won't be updated till the next event-loop update.
+ For this reason, if your script needs to call isAvalable/availableFamilies
+ just after loading/unloading a fontfile, you need to call the "update" command. 
+
+ 
+One important distinction to keep in mind is among
+  font-filename
+  font-family
+  fontname (or tk-fontname)
+  
+Font-filename is used just for loading/unloading an external font:
+  extrafont::load "c:/tmp/Monoton-regular.ttf"
+
+This font-file contains just one font. The font-family-name can be extracted as
+result of the extrafont::load command 
+  foreach fontfamily $fontfamilies {
+     puts "Loaded fint-family: $fontfamily"
+  }
+   # just get the 1st font-familiy
+  set myNewFontFamily [lindex $fontfamilies 0] ;#  -->  "Monoton"
+ 
+When you want to use this new font, you should create or configure 
+a tk-fontname (using the standard 'font' command)
+
+ set myfontname "tk_monoton"  ;#  ... choose the name you want ..
+ font create $myfontname -family $myNewFontFamily -size 20
+  # or, let tk choose a fontname for you ...
+ set myfontname [font create -family $myNewFontFamily -size 20]
+  # then use $myfontname for a new widget ...
+ label .mylabel -font $myfontname .......  

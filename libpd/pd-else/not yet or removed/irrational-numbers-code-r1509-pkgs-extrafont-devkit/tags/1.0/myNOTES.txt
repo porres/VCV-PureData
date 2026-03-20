@@ -1,0 +1,6 @@
+TODO:
+
+REQ-1) Unload fonts
+    Only for dinamically loaded font
+REQ-2) Temporary extract fonts found in a vfs
+REQ-3) Show family-name for a font-file

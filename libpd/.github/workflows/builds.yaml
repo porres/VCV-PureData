@@ -1,0 +1,194 @@
+name: Builds
+
+on:
+  push:
+    branches: [ "master", "develop" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pd_multi: [OFF]
+        build_type: [Debug]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+            submodules: 'recursive'
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y --no-install-recommends install cmake build-essential
+      - name: Build (Makefile)
+        run: |
+          make
+          make -C samples/c/pdtest
+          make clobber
+          make -C samples/c/pdtest_multi
+          make -C samples/c/pdtest_thread
+      - name: Build (CMake)
+        run: |
+            cmake \
+              -S $PWD -B build \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DPD_MULTI=${{ matrix.pd_multi }} \
+              -DPD_BUILD_C_EXAMPLES=ON
+            cmake --build build
+
+  win_msvc:
+    name: Visual Studio
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        pd_multi: [OFF]
+        build_type: [Debug]
+        arch: [x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - name: Checkout pthread-win32
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          repository: GerHobbelt/pthread-win32
+          path: pthread-win32
+      - name: Set up Visual Studio shell
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: ${{ matrix.arch }}
+      - name: Dependencies
+        shell: bash
+        run: |
+          choco install -y cmake
+      - name: Pthread
+        run: |
+          msbuild pthread-win32/windows/VS2022/pthread_lib.2022.vcxproj /p:Configuration=${{ matrix.build_type }} /p:Platform=${{ matrix.arch }}
+      - name: Build (CMake)
+        shell: bash
+        run: |
+          export PTHREAD_STATIC_LIB=$(find pthread-win32/windows/VS2022/bin -name pthread_static_lib.lib)
+          export ARCH=$(echo ${{ matrix.arch }} | sed 's/x86/Win32/')
+          cmake \
+            -S $PWD -B build -G "Visual Studio 17 2022" -A $ARCH \
+            -DPD_MULTI=${{ matrix.pd_multi }} \
+            -DPD_BUILD_C_EXAMPLES=ON \
+            -DPTHREADS_LIB="$PTHREAD_STATIC_LIB" \
+            -DPTHREADS_INCLUDE_DIR=pthread-win32/
+          cmake --build build --config ${{ matrix.build_type }}
+
+  win_mingw:
+    name: MinGW
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pd_multi: [OFF]
+        build_type: [Debug]
+        platform: [
+          { sys: mingw64, env: x86_64 },
+         ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{matrix.platform.sys}}
+          update: true
+          install: base-devel
+          pacboy: toolchain:p cmake:p
+      - name: Build (Makefile)
+        shell: msys2 {0}
+        run: |
+          make
+          make -C samples/c/pdtest
+          make clobber
+          make -C samples/c/pdtest_multi
+          make -C samples/c/pdtest_thread
+      - name: Build (CMake)
+        shell: msys2 {0}
+        run: |
+          cmake \
+            -S $PWD -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DPD_MULTI=${{ matrix.pd_multi }} \
+            -DPD_BUILD_C_EXAMPLES=ON
+          cmake --build build
+
+  mac:
+    name: macOS
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        pd_multi: [OFF]
+        build_type: [Debug]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+            xcode-version: latest-stable
+      - name: Dependencies
+        run: |
+          brew install cmake
+      - name: Build (Makefile)
+        run: |
+          make
+          make -C samples/c/pdtest
+          make clobber
+          make -C samples/c/pdtest_multi
+          make -C samples/c/pdtest_thread
+      - name: Build (CMake)
+        run: |
+          cmake \
+            -S $PWD -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DPD_MULTI=${{ matrix.pd_multi }} \
+            -DPD_BUILD_C_EXAMPLES=ON
+          cmake --build build
+
+  bsd:
+    name: FreeBSD
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pd_multi: [OFF]
+        build_type: [Debug]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y cmake
+      - name: Build (Makefile)
+        run: |
+          make
+          make -C samples/c/pdtest
+          make clobber
+          make -C samples/c/pdtest_multi
+          make -C samples/c/pdtest_thread
+      - name: Build (CMake)
+        run: |
+          cmake \
+            -S $PWD -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DPD_MULTI=${{ matrix.pd_multi }} \
+            -DPD_BUILD_C_EXAMPLES=ON
+          cmake --build build

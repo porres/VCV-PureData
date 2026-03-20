@@ -1,0 +1,611 @@
+# extrafont-basic.test --
+
+#
+#	Basic tests.
+#
+package require TTXN
+
+  # package under test is: extrafont 1.2
+package require extrafont 1.2
+
+set thisDir [file dirname [file normalize [info script]]]
+
+
+ # --- some utilities for the next tests --------------------------------------
+
+namespace eval util  {}
+
+proc util::checkTextVisually { tkfontname titlebar txt} {
+    variable response
+    
+    set topW .z
+    toplevel $topW
+    label $topW.test -text $txt -font $tkfontname
+    pack $topW.test
+    frame $topW.buttons
+    set response ""
+    button $topW.buttons.yes -text Yes  -command [namespace code {set response YES!}]
+    button $topW.buttons.no -text No -command [namespace code {set response NO!}]
+    pack $topW.buttons.yes $topW.buttons.no -side left
+    pack $topW.buttons
+    wm title $topW $titlebar
+    wm attributes $topW -topmost true
+    tkwait variable [namespace current]::response
+    destroy $topW
+    return $response
+}
+
+ # --- end of util::* section -------------------------------------------------
+
+Name: availableFamilies
+Description: {check if a preinstalled font is in availableFamilies }
+Test: {
+     # get the last preinstalled font
+    set fontname [lindex [font families] end]
+    set L [extrafont::availableFamilies ${fontname}*]
+    expr { [llength $L] > 0 }
+}
+Expected: 1
+
+
+Name: isAvailable
+Description: test for an existing font-family
+Test: {
+     # get the last preinstalled font
+    set fontname [lindex [font families] end]
+    extrafont::isAvailable $fontname
+}
+Expected: true
+
+
+Name: isAvailable.NEG
+Description: test for a non-existing font
+Test: {
+    extrafont::isAvailable {Non Existing Font}
+}
+Expected: false
+
+ # these are a new fonts used for testing.
+ # We presume they are not preinstalled.
+ 
+set newFamily1     "ROCK-ON Demo"
+set newFontFile1   [file join $thisDir Fonts "Typoster ROCK-ON Demo.otf"]
+set newFontFile1_AltName [file join $thisDir .. tests Fonts "Typoster ROCK-ON Demo.otf"]
+
+set newFamily2     "Term"
+set newFontFile2 [file join $thisDir Fonts "Term-RegCcc.ttf"]
+
+ # .otf  (type "OTTO")
+set newFamilyOTTO     "Blacksword"
+set newFontFileOTTO [file join $thisDir Fonts "Blacksword.otf"]
+
+ # .ttc  (OpenTypeCollection)
+set newFamilyTTC     "Test TTF"
+ # .. it contains two identical fonts.
+set newFontFileTTC [file join $thisDir Fonts "TestTTC.ttc"]
+
+ # a group of files : 
+ #  GB1 and GB2  are part of the "Gobold Hollow" family
+ #  GB3 and GB4  are part of the "Gobold Hollow Bold" family
+set newFontGB1  [file join $thisDir Fonts "Gobold Hollow.otf"]
+set newFontGB2  [file join $thisDir Fonts "Gobold Hollow Italic.otf"]
+set newFontGB3  [file join $thisDir Fonts "Gobold Hollow Bold.otf"]
+set newFontGB4  [file join $thisDir Fonts "Gobold Hollow Bold Italic.otf"]
+
+#  WARNING:
+#  Before starting, be sure font1 and font2 are not amongs the sytem-wide installed fonts
+    if { [extrafont::isAvailable $newFamily1] } {
+        puts "FATAL ERROR: font \"$newFamily1\" already installed. Please try with another font"    
+        ::exit
+    }
+    if { [extrafont::isAvailable $newFamily2] } {
+        puts "FATAL ERROR: font \"$newFamily2\" already installed. Please try with another font"    
+        ::exit
+    }
+
+set vfsVolume [file join $thisDir Fonts "FontCollection.zip"]
+
+
+Name: fontdetails
+Description: list all the valids keys (nameIDs) used in a font-details ddictionary
+Test: {
+    set keys [extrafont::nametable::nameIDs]
+     # just list the first 3 keys ... and the last
+    set subset [lrange $keys 0 2]
+    lappend subset "..." [lrange $keys end end]
+}
+Expected: {copyright fontFamily fontSubfamily ... variationsPostScriptNamePrefix}
+
+
+Name: nameinfo1
+Description: extract font-info from a simple fontfile
+Test: {
+    set details [extrafont::nameinfo  $newFontFile2]
+    set nFonts [llength $details]  ;# expected 1
+    set res {}
+    lappend res $nFonts
+    set detail [lindex $details 0]
+     # just extract 3 fields
+    lappend  res [dict get $detail "fontFamily"]
+    lappend  res [dict get $detail "fontSubfamily"]
+    lappend  res [dict get $detail "fullName"]    
+    return $res
+}
+Expected: {1 Term Regular Term-RegCcc}
+
+Name: nameinfo2
+Description: extract font-info from a TTC (font collection)
+Test: {
+    set details [extrafont::nameinfo  $newFontFileTTC]
+    set nFonts [llength $details]  ;# expected 2
+     # Warning: this is a fake Test-TTC with just 2 identical fonts (a nonsense)
+    set res {}
+    lappend res $nFonts
+    foreach detail $details {
+         # just extract 3 fields
+        lappend  res [dict get $detail "fontFamily"]
+        lappend  res [dict get $detail "fontSubfamily"]
+        lappend  res [dict get $detail "fullName"]
+    }    
+    return $res
+}
+Expected: {2 {Test TTF} Regular {Test TTF} {Test TTF} Regular {Test TTF}}
+
+
+Name: load.NEG
+Description: {try to load an extra "non existing" font}
+Test: {
+    extrafont::load /AldoBu.ttf
+}
+Expected: error glob "error * cannot load font *" 
+
+
+Name: load.NEG-1
+Description: {try to load a "bad" font}
+Test: {
+     # use an existing file (not a font-file)
+    extrafont::load [file join $thisDir README.txt]
+}
+Expected: error glob "error * cannot load font *" 
+
+ 
+Name: load-1
+Description: {load an extra font}
+Test: {
+    extrafont::load $newFontFile1
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families]  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    extrafont::isAvailable $newFamily1
+}
+Cleanup: {
+    extrafont::unload $newFontFile1
+}
+Expected: true 
+
+
+Name: load-and-getFamily1
+Description: {load an extra font and get the family name(s)}
+Test: {
+    set L [extrafont::load $newFontFile1]
+    # note: this is a list with one fontFamily
+}
+Cleanup: {
+    extrafont::unload $newFontFile1
+}
+Expected: [list $newFamily1] 
+
+
+
+Name: load-and-getFamily2
+Description: {load an extra font (type "OTTO") and get the family name(s)}
+Test: {
+    set L [extrafont::load $newFontFileOTTO]
+}
+Cleanup: {
+    extrafont::unload $newFontFileOTTO
+}
+Expected: [list $newFamilyOTTO] 
+
+
+Name: load-and-getFamily3
+Description: {load an extra font (type "TTC") and get the family name(s)}
+Test: {
+    set L [extrafont::load $newFontFileTTC]
+}
+Cleanup: {
+    extrafont::unload $newFontFileTTC
+}
+Expected: [list $newFamilyTTC $newFamilyTTC] 
+
+
+Name: load-and-getFamily4
+Description: {some fonts have different familiy-names on different OS}
+Test: {
+     # PREREQ: ensure no family "Quicksand" is alreadey loaded
+    set fontfile [file join $thisDir Fonts "Quicksand_Light.otf"]
+     # This font on Windows it's loaded as "Quicksand Light" ,
+     #  on win/mac it's loaded as "Quicksand"
+    set newfam [extrafont::load $fontfile]
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families])  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+
+    set loadedfams [lsearch -all -inline [font families] "Quicksand*"]
+     # check if the loaded name is equal to the extracted one
+    expr {[lindex $newfam 0] == [lindex $loadedfams 0]}    
+}
+Cleanup: {
+    extrafont::cleanup
+}
+Expected: 1
+
+Name: load-2
+Description: {load an extra font and unload it using a different (equivalent) pathname}
+Test: {
+    extrafont::load $newFontFile1
+    extrafont::unload $newFontFile1_AltName
+
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families])  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    extrafont::isAvailable $newFamily1
+}
+Expected: false 
+
+
+Name: load-3
+Description: {load two fontfiles}
+Test: {
+    extrafont::load $newFontFile1
+    extrafont::load $newFontFile2
+
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families])  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    set avail1 [extrafont::isAvailable $newFamily1]
+    set avail2 [extrafont::isAvailable $newFamily2]
+    
+    return [expr $avail1 && $avail2]
+}
+Cleanup: {
+    extrafont::unload $newFontFile1
+    extrafont::unload $newFontFile2
+}
+Expected: 1
+
+
+Name: load-4
+Description: {load two fontfiles and then do a cleanup}
+Test: {
+    extrafont::load $newFontFile1
+    extrafont::load $newFontFile2
+    
+    extrafont::cleanup
+    
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families])  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    set avail1 [extrafont::isAvailable $newFamily1]
+    set avail2 [extrafont::isAvailable $newFamily2]
+    
+    list $avail1  $avail2
+}
+Expected: {false false}
+
+
+Name: load-NEG.2
+Description: {try to load a fontfile twice}
+Test: {
+    extrafont::load $newFontFile1
+    extrafont::load $newFontFile1
+}
+Cleanup: {
+    extrafont::unload $newFontFile1
+}
+Expected: error glob "Fontfile * already loaded."
+
+
+Name: load-NEG.3
+Description: {try to load a fontfile twice , with a different (equivalent) filename}
+Test: {
+    extrafont::load $newFontFile1
+    extrafont::load $newFontFile1_AltName
+}
+Cleanup: {
+    extrafont::unload $newFontFile1
+}
+Expected: error glob "Fontfile * already loaded."
+
+
+Name: unload.NEG-1
+Description: {try to unload a not-loaded fontfile}
+Test: {
+    extrafont::unload /NeverLoaded.tff
+}
+Expected: error glob "* cannot unload *"
+
+
+Name: unload.NEG-2
+Description: {try to unload a fontfile twice}
+Test: {
+    extrafont::load $newFontFile1
+    extrafont::unload $newFontFile1
+    extrafont::unload $newFontFile1
+}
+Expected: error glob "* cannot unload *"
+
+
+Name: unload-1
+Description: {load two fontfiles and unload the first}
+Test: {
+    extrafont::load $newFontFile1
+    extrafont::load $newFontFile2
+    extrafont::unload $newFontFile1
+
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families]  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    set avail1 [extrafont::isAvailable $newFamily1]
+    set avail2 [extrafont::isAvailable $newFamily2]
+    list $avail1 $avail2   
+}
+Cleanup: {
+    extrafont::unload $newFontFile2
+}
+Expected: {false true}
+
+
+Name: loaded-1
+Description: {list all loaded extrafonts - OBSOLETE}
+Test: {
+     # no extrafont expected
+    llength [extrafont::loaded]
+}
+Expected: 0
+
+
+Name: loaded-2
+Description: {list all loaded extrafonts - OBSOLETE}
+Test: {
+    set n0 [llength [extrafont::loaded]]
+
+    extrafont::load $newFontFile1
+    extrafont::load $newFontFile2
+    catch {extrafont::load $newFontFile1} ;# try to load a already loaded font
+    set n1 [llength [extrafont::loaded]]
+
+    extrafont::cleanup
+    set n2 [llength [extrafont::loaded]]
+
+    list $n0 $n1 $n2    
+}
+Expected: {0 2 0}
+
+
+Name: loaded-2.x
+Description: {query for all the loaded extrafonts -families}
+Test: {
+    extrafont::cleanup
+
+    extrafont::load $newFontFile1
+    extrafont::load $newFontFile2
+
+    extrafont::query families
+}
+Cleanup: {
+    extrafont::cleanup
+}
+Expected: [list $newFamily1 $newFamily2]
+
+
+
+Name: query-family2files-1
+Description: {query for the font-files of a not loaded font}
+Test: {
+    extrafont::query files -family "Not-a-loaded-family"
+} 
+Expected: {}
+
+
+Name: query-family2files-2
+Description: {query for the font-files of a loaded font}
+Setup: {
+    set fams [extrafont::load $newFontFile1]
+    set fam [lindex $fams 0]
+}
+Test: {
+    extrafont::query files -family $fam
+} 
+Cleanup: {
+    extrafont::unload $newFontFile1
+}
+Expected: [list $newFontFile1]
+
+
+Name: query-family2files-3
+Description: {query for the font-file(s) of a given font family}
+Setup: {
+    extrafont::load $newFontGB1
+    extrafont::load $newFontGB2
+    extrafont::load $newFontGB3
+    extrafont::load $newFontGB4
+}
+Test: {
+    set L [extrafont::query families -family "Gobold Hollow*"]
+     # note that files 1 and 2 are part of the family; "Gobold Hollow" 
+     #           files 3 and 4 are part of the family; "Gobold Hollow Bold" 
+
+     # list returned by query are alredy sorted
+} 
+Cleanup: {
+    extrafont::cleanup
+}
+Expected: [lsort [list "Gobold Hollow" "Gobold Hollow Bold"]]
+
+
+Name: load-from-vfs
+Only: vfs::zip
+Description: {load a font-file from a vfs (zip) and get fullfamily}
+Setup: {
+    package require vfs::zip
+    set mountFd [vfs::zip::Mount $vfsVolume vfsCollection]
+}
+Test: {
+    set fontFile vfsCollection/Term-RegCCC.ttf
+    set fam [extrafont::load $fontFile]
+}
+Cleanup: {
+    extrafont::unload $fontFile 
+    vfs::zip::Unmount $mountFd vfsCollection
+}
+Expected: $newFamily2
+
+
+Name: duplicated-font
+Description: { load two font-files with the same full-familyname }
+Test: {
+     # these two font-files have fonts with the same name: {{Duped Fake} Regular}
+    set dupFontfile1 [file join $thisDir Fonts "DupedFake1.ttf"]
+    set dupFontfile2 [file join $thisDir Fonts "DupedFake2.ttf"]
+
+    set L [extrafont::load $dupFontfile1]
+    lassign $L fam1 subfam1
+
+    set L [extrafont::load $dupFontfile2]
+    lassign $L fam2 subfam2
+
+     # 1st check: fam1,subfam1 and fam2,subfam2 are equal
+    set results {}
+    lappend results [expr {$fam1==$fam2 && $subfam1==$subfam2 ? true : false}]
+
+     # 2nd check: fam1 is loaded
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families])  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    lappend results [extrafont::isAvailable $fam1]
+
+        
+     # now unload the first ...
+    extrafont::unload $dupFontfile1
+     # 3rd check: fam1 ( or fam2) is still available
+     
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families])  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    lappend results [extrafont::isAvailable $fam1]
+         
+     # now unload the second 
+    extrafont::unload $dupFontfile2
+     # 4th check:  fam1 ( or fam2) is NO MORE available
+     
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # extrafont::isAvailable/availableFamilies (i.e. those depending on [font families])  won't be updated
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    lappend results [extrafont::isAvailable $fam2]
+}
+Expected: {true true true false}
+
+
+Name: duplicated-font-visual
+Only: userInteraction
+Description: { visual check: load two font-files with the same full-familyname }
+Test: {
+     # these two font-files have fonts with the same name: {{Duped Fake} Regular}
+    set dupFontfile1 [file join $thisDir Fonts "DupedFake1.ttf"]
+    set dupFontfile2 [file join $thisDir Fonts "DupedFake2.ttf"]
+
+    set L [extrafont::load $dupFontfile1]
+    lassign $L fam1 subfam1
+
+    set newFont1 [font create]
+    font configure $newFont1 -family $fam1 -size 40
+
+    util::checkTextVisually  $newFont1  \
+        "Visual check 1/3" \
+        "This is font \"$fam1 - $subfam1\".\nTry compare with it with the next.. (press a button)"
+
+    set L [extrafont::load $dupFontfile2]
+    lassign $L fam2 subfam2
+    set newFont2 [font create]
+    font configure $newFont2 -family $fam2 -size 40
+
+    set res1 [util::checkTextVisually  $newFont2  \
+        "Visual check 2/3" \
+        "An homonym font \"$fam2 - $subfam2\" .\nIs it different from the previous ?"]
+
+     # we expect the same look ...
+
+     # now unload the first one  and compare it visually again ...
+    extrafont::unload $dupFontfile1
+    set res2 [util::checkTextVisually  $newFont2  \
+        "Visual check 3/3" \
+        "This is font \"$fam2 - $subfam2\" again.\nDoes it look like the first ?"]
+
+    font delete $newFont1
+    font delete $newFont2
+    
+    list $res1 $res2
+}
+Cleanup: { extrafont::cleanup }
+Expected: {NO! NO!}
+
+
+Name: show
+Description: { show the new sample font }
+Only: userInteraction
+Setup: {
+    extrafont::load $newFontFile2
+    set newFont [font create]
+    font configure $newFont -family $newFamily2 -size 40
+}
+Test: {
+    util::checkTextVisually  $newFont  \
+        "visual check 1/1" \
+        "Can you see \nthis new fancy \n\"$newFamily2\"\n font ?" 
+}    
+Cleanup: {
+    font delete $newFont
+    extrafont::unload $newFontFile2
+}
+Expected: YES!
+
+
+# === cleanup ========================================
+::tcltest::cleanupTests

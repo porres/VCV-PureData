@@ -1,0 +1,66 @@
+## This is just the *preliminary* part of the general 'cross-makefile'.
+## Here we set macros *specific for ms platforms*
+## and all the nmake-specific parts that are incompatible with a
+##  standard makefile
+
+## Expected:
+##   OS : win
+##   ARCH: x32 or x64
+
+TARGET=$(OS)-$(ARCH)
+
+PATH_SEP=;
+
+
+!if ! defined(BUILDDIR)
+# -- WARNING: in Unix notation
+BUILDDIR=XBUILD
+!endif
+
+## MS-specific Options for CC :
+##   /Ox - (optional) - maximum optimizations  (implies /Oy)
+##   -MD   Compiles to create a multithreaded DLL, by using MSVCRT.lib.
+##   /wd4820 suppress warning about struct padding
+CFLAGS=-Wall /wd4820 -MD -Ox $(CFLAGS)
+
+## set some macros for OS-Dependent commands.
+## -- Macros for DOS commands -------------- 
+X_COMMENT=:: 
+X_RMDIR=U2D rmdir
+X_MKDIR=U2D mkdir
+X_COPY=U2D copy
+X_RM=U2D rm
+X_COPYTREE=U2D xcopy
+
+### --- Implicit rules for 
+###      .c --> .obj
+
+.SUFFIXES : .c 
+
+#
+# Inference Rule: from *.c to *.obj :
+#    DIR_CSRC and DIR_OBJ are defined in the generic cross-makefile
+#    OH NOOO !!!  nmake's inference rules requires that DIR_CSRC and DIR_OBJ
+#      be defined before loading the rule ! 
+#
+DIR_CSRC=src
+DIR_OBJ=$(BUILDDIR)/$(TARGET)
+
+{$(DIR_CSRC)}.c{$(DIR_OBJ)}.obj:
+	$(CC) -c $(CFLAGS) -DUSE_TCL_STUBS -I BuildSupport/tcl/include $< -Fo$@ 
+
+
+  
+## Commands and options for linking
+LINK=link /DLL
+LINK_OUT_OPTION=-out:
+
+
+LIBS_OPTIONS=\
+	BuildSupport/tcl/$(TARGET)/tclstub85.lib \
+	gdi32.lib
+
+  
+DLL=extrafont.dll  
+
+!INCLUDE cross-makefile

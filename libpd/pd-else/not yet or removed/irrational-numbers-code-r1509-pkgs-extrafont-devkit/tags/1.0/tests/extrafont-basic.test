@@ -1,0 +1,112 @@
+# extrafont-basic.test --
+
+#
+#	Basic tests.
+#
+
+package require TTXN
+
+  # package under test is: extrafont 1.0
+package require extrafont 1.0
+
+set thisDir [file dirname [file normalize [info script]]]
+
+
+
+Name: availableFamilies
+Description: {check if a preinstalled font is in availableFamilies }
+Test: {
+     # get the last preinstalled font
+    set fontname [lindex [font families] end]
+    set L [extrafont::availableFamilies ${fontname}*]
+    expr { [llength $L] > 0 }
+}
+Expected: 1
+
+Name: isAvailable
+Description: test for an existing font-family
+Test: {
+     # get the last preinstalled font
+    set fontname [lindex [font families] end]
+    extrafont::isAvailable $fontname
+}
+Expected: true
+
+Name: isAvailable.NEG
+Description: test for a non-existing font
+Test: {
+    extrafont::isAvailable {Non Existing Font}
+}
+Expected: false
+
+Name: load.NEG
+Description: {load an extra "non existing" font}
+Test: {
+    extrafont::load /AldoBu.ttf
+}
+Expected: error glob "error * cannot load font *" 
+
+Name: load.NEG-1
+Description: {load a "bad" font}
+Test: {
+     # use an existing file (not a font-file)
+    extrafont::load [file join $thisDir README.txt]
+}
+Expected: error glob "error * cannot load font *" 
+
+
+ # this is a new font used for testing.
+ # We presume it is not preinstalled.
+ 
+set newFontName {ROCK-ON Demo}
+set newFontFile [file join $thisDir "Typoster ROCK-ON Demo.otf"]
+
+ 
+Name: load
+Description: {load an extra font - We presume it's NOT preinstalled}
+Setup: {
+    set newFontName {ROCK-ON Demo}
+    set newFontFile [file join $thisDir "Typoster ROCK-ON Demo.otf"]
+    if { [extrafont::isAvailable $newFontName] } {
+        error "font \"$newFontName\" already installed. Please try with another font"    
+    }
+}
+Test: {
+    extrafont::load $newFontFile
+     #
+     # WARNING: on MacOSX, we need an event-loop update, or
+     # the new font won't be visible !
+     #
+    if { $::tcl_platform(platform) == "unix"  &&  $::tcl_platform(os) == "Darwin"} {
+        update
+    }
+    extrafont::isAvailable $newFontName
+}
+Expected: true 
+
+
+Name: show
+Description: { show the new sample font }
+Test: {
+    set newFont [font create]
+    font configure $newFont -family $newFontName -size 40
+    set topW .z
+    toplevel $topW
+    label $topW.test -text "Can you see \nthis new \"$newFontName\" font ?" -font $newFont
+    pack $topW.test
+    frame $topW.buttons
+    set response ""
+    button $topW.buttons.yes -text Yes -command { set response YES! }
+    button $topW.buttons.no -text No -command { set response NO! }
+    pack $topW.buttons.yes $topW.buttons.no -side left
+    pack $topW.buttons
+    wm attributes $topW -topmost true
+    tkwait variable response
+    destroy $topW
+    return $response
+}
+Expected: YES!
+
+
+# === cleanup ========================================
+::tcltest::cleanupTests

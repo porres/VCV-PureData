@@ -1,0 +1,58 @@
+# 
+# copyright (c) 2014 rafael vega <rvega@elsoftwarehamuerto.org>
+# 
+# bsd simplified license.
+# for information on usage and redistribution, and for a disclaimer of all
+# warranties, see the file, "license.txt," in this distribution.
+# 
+# see https://github.com/libpd/libpd for documentation
+#
+
+# detect platform, move libpd dylib to local folder on mac
+UNAME = $(shell uname)
+SOLIB_PREFIX = lib
+
+ifeq ($(UNAME), Darwin) # Mac
+  SOLIB_EXT = dylib
+  PLATFORM = mac
+else
+  ifeq ($(OS), Windows_NT) # Windows, use Mingw
+    SOLIB_PREFIX =
+    SOLIB_EXT = dll
+    PLATFORM = windows
+  else # assume Linux
+    SOLIB_EXT = so
+    PLATFORM = linux
+  endif
+endif
+
+LIBPD_DIR = ../../..
+LIBPD = $(LIBPD_DIR)/libs/$(SOLIB_PREFIX)pd.$(SOLIB_EXT)
+
+SRC_FILES = src/PdObject.cpp src/main.cpp
+TARGET = pdtest_jack
+
+CXXFLAGS = -I$(LIBPD_DIR)/libpd_wrapper -I$(LIBPD_DIR)/libpd_wrapper/util \
+           -I$(LIBPD_DIR)/pure-data/src -I$(LIBPD_DIR)/cpp \
+           -I./src -std=c++11 -DLIBPD_USE_STD_MUTEX -O3
+
+.PHONY: clean clobber
+
+$(TARGET): ${SRC_FILES:.cpp=.o} $(LIBPD)
+	g++ -o $(TARGET) $^ $(LIBPD) -ljack
+ifeq ($(PLATFORM), mac)
+	mkdir -p ./libs && cp $(LIBPD) ./libs
+endif
+
+$(LIBPD):
+	cd $(LIBPD_DIR) && make
+
+clean:
+	rm -f src/*.o
+
+clobber: clean
+	rm -f $(TARGET)
+ifeq ($(PLATFORM), mac)
+	rm -rf ./libs
+endif
+	cd $(LIBPD_DIR) && make clobber

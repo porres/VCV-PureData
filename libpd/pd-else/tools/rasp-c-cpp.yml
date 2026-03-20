@@ -1,0 +1,241 @@
+name: C/C++ CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["master", "CI"]
+  pull_request:
+    branches: ["master", "CI"]
+
+env:
+  BUILD_TYPE: Release
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+jobs:
+  # ===============================================================
+  Linux-Build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-linux
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+
+      - name: Downloads pd-Sources
+        shell: bash
+        run: |
+          curl -L -o pure-data.zip https://api.github.com/repos/pure-data/pure-data/zipball/refs/tags/0.55-2
+          unzip pure-data.zip
+          rm pure-data.zip
+          mv pure-data-* pure-data
+
+      - name: Configure pd-else
+        run: |
+          cmake -BBuild -DPD_PATH=${{github.workspace}}/pure-data \
+              -DCMAKE_C_COMPILER_LAUNCHER="ccache" \
+              -DCMAKE_CXX_COMPILER_LAUNCHER="ccache" \
+              -DOPENSSL_ROOT_DIR=/usr/lib/ssl \
+              -DOPENSSL_LIBRARIES=/usr/lib/x86_64-linux-gnu
+
+      - name: Build pd-else
+        run: |
+          cmake --build Build
+
+      - name: Upload Zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: else-linux
+          path: ./Build/else
+          
+ # ===============================================================
+  RaspberryPi-Build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install cross-compilation tools and dependencies
+        run: |
+          sudo dpkg --add-architecture arm64
+          # Clear out the existing sources.list
+          sudo rm /etc/apt/sources.list
+          # Add architecture-specific repositories
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          # Add ARM64 repositories
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          sudo apt-get update
+          sudo apt-get install -y crossbuild-essential-arm64
+          sudo apt-get install -y libssl-dev:arm64
+
+      - name: Downloads pd-Sources
+        shell: bash
+        run: |
+          curl -L -o pure-data.zip https://api.github.com/repos/pure-data/pure-data/zipball/refs/tags/0.55-0
+          unzip pure-data.zip
+          rm pure-data.zip
+          mv pure-data-* pure-data
+
+      - name: Create Toolchain File
+        run: |
+          cat << EOF > toolchain.cmake
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR aarch64)
+          set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+          set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          set(CMAKE_FIND_ROOT_PATH /usr/aarch64-linux-gnu)
+          
+          # Disable all x86 optimizations and enable ARM ones
+          set(CMAKE_CXX_FLAGS_INIT "-DSFIZZ_DISABLE_X86_OPTIMIZATIONS -DSFIZZ_USE_NEON")
+          set(CMAKE_C_FLAGS_INIT "-DSFIZZ_DISABLE_X86_OPTIMIZATIONS -DSFIZZ_USE_NEON")
+          
+          # Force disable SSE
+          add_definitions(-DSFIZZ_SSE_LEVEL=0)
+          add_definitions(-DSFIZZ_DISABLE_X86_OPTIMIZATIONS)
+          add_definitions(-DSFIZZ_USE_NEON)
+          EOF
+
+      - name: Configure pd-else for ARM64
+        run: |
+          cmake -BBuild \
+            -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/toolchain.cmake \
+            -DPD_PATH=${{github.workspace}}/pure-data \
+            -DOPENSSL_ROOT_DIR=/usr/lib/aarch64-linux-gnu \
+            -DOPENSSL_LIBRARIES=/usr/lib/aarch64-linux-gnu \
+            -DSFIZZ_USE_X86_OPTIMIZATIONS=OFF \
+            -DSFIZZ_USE_ARM_OPTIMIZATIONS=ON \
+            -DSFIZZ_DISABLE_X86_OPTIMIZATIONS=ON \
+            -DSFIZZ_USE_NEON=ON \
+            -DSFIZZ_SSE_LEVEL=0 \
+            -DSFIZZ_VST_ARCH=arm64
+
+      - name: Build pd-else
+        run: cmake --build Build
+
+      - name: Upload Zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: else-linux-arm64
+          path: ./Build/else
+          
+  # ===============================================================
+  macOS-Build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-macos
+
+      - name: Downloads pd sources
+        shell: bash
+        run: |
+          curl -L -o pure-data.zip https://api.github.com/repos/pure-data/pure-data/zipball/refs/tags/0.55-2
+          unzip pure-data.zip
+          rm pure-data.zip
+          mv pure-data-* pure-data
+
+      - name: Configure pd-else
+        run: |
+          cmake -BBuild -DPD_PATH=${{github.workspace}}/pure-data -DCMAKE_C_COMPILER_LAUNCHER="ccache" -DCMAKE_CXX_COMPILER_LAUNCHER="ccache"
+
+      - name: Build pd-else
+        run: |
+          cmake --build Build
+
+      - name: Upload Zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: else-macos
+          path: ./Build/else
+
+  # ===============================================================
+
+  Windows-Build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          install: make mingw-w64-x86_64-gcc mingw64/mingw-w64-x86_64-cmake mingw64/mingw-w64-x86_64-ccache
+          cache: true
+
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: D:/ccache
+          key: ccache-windows-${{ github.run_id }}
+          restore-keys: |
+            ccache-windows-${{ github.sha }}
+            ccache-windows-
+
+      - name: Get Pd
+        shell: bash
+        run: |
+          curl -L -o pure-data.zip http://msp.ucsd.edu/Software/pd-0.55-2.msw.zip
+          unzip pure-data.zip
+          rm pure-data.zip
+          mv pd-0.55-2 pd
+
+      - name: Configure pd-else
+        shell: msys2 {0}
+        run: |
+          cmake -GNinja -BBuild -DPD_PATH=./pd -DCMAKE_C_COMPILER_LAUNCHER="ccache" -DCMAKE_CXX_COMPILER_LAUNCHER="ccache"
+
+      - name: Build pd-else
+        shell: msys2 {0}
+        run: |
+          export CCACHE_COMPRESS=1
+          export CCACHE_COMPRESSLEVEL=6
+          export CCACHE_MAXSIZE=1G
+          export CCACHE_DIR=D:/ccache
+          cmake --build Build
+          ccache -s
+          rm -rf ./Build/else/*.a
+        env:
+          CCACHE_COMPRESS: "1"
+          CCACHE_COMPRESSLEVEL: "6"
+          CCACHE_MAXSIZE: "1G"
+          CCACHE_DIR: D:/ccache
+
+      - name: Save build cache
+        uses: actions/cache/save@v4
+        with:
+          path: D:/ccache
+          key: ccache-windows-${{ github.run_id }}
+
+      - name: Upload Zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: else-windows
+          path: ./Build/else
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: [Windows-Build, macOS-Build, Linux-Build, RaspberryPi-Build]
+    steps:
+      - name: Merge Artifacts
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: else

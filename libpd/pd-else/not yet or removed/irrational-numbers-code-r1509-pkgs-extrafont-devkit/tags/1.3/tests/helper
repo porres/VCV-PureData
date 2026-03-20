@@ -1,0 +1,14 @@
+# helper for running TTXN test-suite on a package
+# without "installing" it
+
+# Note that TTXN package should be placed under a standard tcl-library directory
+# OR within this "test" directory
+
+ # path for TTXN package
+lappend auto_path [file dirname [file normalize [info script]]]
+
+ # path for tested package -- we assume it's under ../XBUILD
+lappend auto_path [file join [file dirname [file dirname [file normalize [info script]]]] XBUILD]
+ 
+set argv [lassign $argv testFile]
+source $testFile

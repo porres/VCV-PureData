@@ -1,0 +1,8 @@
+# build files
+libs
+src/*.o
+pdtest_multi
+
+# xcode
+xcode/pdtest.app
+xcode/*/project.xcworkspace

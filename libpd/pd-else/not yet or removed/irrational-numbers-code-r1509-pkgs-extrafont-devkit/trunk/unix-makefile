@@ -1,0 +1,96 @@
+## This is just the *preliminary* part of the general 'cross-makefile'.
+## It's designed for different OS (linux,darwin)
+
+## Expected:
+##   OS : linux, darwin
+##   ARCH: x32 x64
+##   TCL_MAJOR_VERSION:  tcl-8 or tcl-9
+
+TARGET:=$(OS)-$(ARCH)
+
+ifeq ($(ARCH), x32)
+CC_TARGET=-m32
+
+else ifeq ($(ARCH), x64)
+CC_TARGET=-m64
+
+else
+$(error ERROR: Unrecognized ARCH "$(ARCH)" )
+endif
+
+ifndef BUILD_DIR
+BUILD_DIR=XBUILD
+endif
+
+
+CC=gcc $(CC_TARGET)
+
+## Options for CC :
+ ##   -O3 - (optional) - maximum optimizations
+ ##  -fPIC ...  ??
+override CFLAGS += -O3 -fPIC
+
+## set some macros for OS-Dependent commands.
+## -- Macros for Unix commands --------------
+
+X_COMMENT=\#
+X_RMDIR=rm -rf
+X_MKDIR=mkdir -p
+X_COPY=cp
+X_RM=rm
+ifeq ($(OS), win)
+X_COPYTREE=cp --verbose -uRf -T
+else ifeq ($(OS), linux)
+X_COPYTREE=cp --verbose -uRf -T
+else ifeq ($(OS), darwin)
+X_COPYTREE=cp -v -Rf
+endif
+
+INCL_DIR=BuildSupport/$(TCL_MAJOR_VER)/include
+STUB_DIR=BuildSupport/$(TCL_MAJOR_VER)/$(TARGET)
+
+ifeq ($(TCL_MAJOR_VER), tcl-8)
+  TAG=8.5
+  TAG1=85
+else ifeq ($(TCL_MAJOR_VER), tcl-9)
+  TAG=9.0
+  TAG1=90
+else
+  $(error ERROR: Unrecognized TCL_MAJOR_VER "$(TCL_MAJOR_VER)" )
+endif
+
+ifeq ($(OS), linux)
+  DLL=extrafont$(TAG1).so
+  LINK=$(CC) -shared -Wl,--no-undefined
+else ifeq ($(OS), darwin)
+  DLL=extrafont$(TAG1).dylib
+  LINK=$(CC) -shared
+else
+  $(error ERROR: Unrecognized OS "$(OS)" )
+endif
+
+LIBS_OPTIONS=-L$(STUB_DIR) -ltclstub$(TAG)
+
+ifeq ($(OS), linux)
+  override LIBS_OPTIONS += -lfontconfig
+else ifeq ($(OS), darwin)
+  override LIBS_OPTIONS += -framework CoreFoundation -framework CoreText
+endif
+
+#
+# pattern Rule: from *.c to *.obj :
+#
+.SUFFIXES : .c
+
+OBJ_DIR=$(BUILD_DIR)/$(TCL_MAJOR_VER)/$(TARGET)
+
+# NOTE: some parts (CC_INCLUDE, ..) will be defined later in cross-makefile
+$(OBJ_DIR)/%.obj :  src/%.c
+	$(CC) -c $(CFLAGS) -DUSE_TCL_STUBS  -I $(INCL_DIR) $< -o $@
+
+
+## Commands and options for linking
+
+LINK_OUT_OPTION=-o
+
+include cross-makefile

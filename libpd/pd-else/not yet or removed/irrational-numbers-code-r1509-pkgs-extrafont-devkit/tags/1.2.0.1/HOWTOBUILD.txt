@@ -1,0 +1,41 @@
+HOW TO BUILD:
+-------------
+
+You should repeat the build procedure on different platforms:
+  Windows
+  Linux
+  MacOSX
+At the end, you will find all the results in a directory named 'XBUILD/extrafont'
+ready for the distribution  
+
+
+Windows:
+--------
+Using MS Visual Studio  (Visual Studio 2015 Community Edition)
+Support for x86/x64 target architecture.
+
+  ms-build x32
+  ms-build x64
+  
+Linux
+-----  
+Using the standard GNU/C tool-chain   
+
+  build.sh x32
+  build.sh x64
+  
+MacOSX
+------  
+Using the standard GNU/C tool-chain   
+
+  build.sh x64
+  
+== TROUBLESHOOTING ============================================================
+
+* Compiling FOR Linux 32 bit (On Linux 64bit).
+if "build.sh x32" exits with an error .. 
+  /usr/bin/ld cannot find  -lfontconfig
+then yoy must reinstall fontconfig-32bit
+Use the following command
+    sudo apt-get install libfontconfig1-dev
+then relaunch build.sh

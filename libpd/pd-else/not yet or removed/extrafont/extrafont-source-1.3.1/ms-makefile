@@ -1,0 +1,67 @@
+## This is just the *preliminary* part of the general 'cross-makefile'.
+## Here we set macros *specific for ms platforms*
+## and all the nmake-specific parts that are incompatible with a
+##  standard makefile
+
+## Expected:
+##   OS : win
+##   ARCH: x32 or x64
+##   TCL_MAJOR_VERSION:  tcl-8 or tcl-9
+
+TARGET=$(OS)-$(ARCH)
+
+!if ! defined(BUILD_DIR)
+# -- WARNING: in Unix notation
+BUILD_DIR=XBUILD
+!endif
+
+## MS-specific Options for CC :
+##   /Ox - (optional) - maximum optimizations  (implies /Oy)
+##   -MD   Compiles to create a multithreaded DLL, by using MSVCRT.lib.
+##   /wo4820 print only once - warning about struct padding
+##   /wo4668 print only once - warning about preprocessor macros
+CFLAGS=-Wall /wo4668 /wo4820 -MD -Ox $(CFLAGS)
+
+## set some macros for OS-Dependent commands.
+## -- Macros for DOS commands -------------- 
+X_COMMENT=:: 
+X_RMDIR=U2D rmdir
+X_MKDIR=U2D mkdir
+X_COPY=U2D copy
+X_RM=U2D rm
+X_COPYTREE=U2D xcopy
+
+
+INCL_DIR=BuildSupport/$(TCL_MAJOR_VER)/include
+STUB_DIR=BuildSupport/$(TCL_MAJOR_VER)/$(TARGET)
+
+
+!if "$(TCL_MAJOR_VER)" == "tcl-8"
+DLL=extrafont85.dll
+LIBS_OPTIONS=$(STUB_DIR)/tclstub85.lib 	gdi32.lib
+!elseif "$(TCL_MAJOR_VER)" == "tcl-9"
+DLL=extrafont90.dll
+LIBS_OPTIONS=$(STUB_DIR)/tclstub90.lib 	gdi32.lib
+!else
+!error "Unexpected TCL_MAJOR_VERSION $(TCL_MAJOR_VER)"
+!endif
+
+
+### --- Implicit rules for
+###      .c --> .obj
+
+.SUFFIXES : .c
+
+#
+# Inference Rule: from *.c to *.obj :
+#
+OBJ_DIR=$(BUILD_DIR)/$(TCL_MAJOR_VER)/$(TARGET)
+
+{src}.c{$(OBJ_DIR)}.obj:
+	$(CC) -c $(CFLAGS) -DUSE_TCL_STUBS -I $(INCL_DIR) $< -Fo$@
+
+## Commands and options for linking
+LINK=link /DLL
+LINK_OUT_OPTION=-out:
+
+!INCLUDE cross-makefile
