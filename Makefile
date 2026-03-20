@@ -14,7 +14,6 @@ include $(RACK_DIR)/arch.mk
 
 # LibPD
 libpd := dep/lib/libpd.a
-SOURCES += src/LibPDEngine.cpp
 OBJECTS += $(libpd)
 DEPS += $(libpd)
 FLAGS += -Idep/include/libpd -DHAVE_LIBDL
